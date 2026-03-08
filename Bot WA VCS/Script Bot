@@ -1,23 +1,61 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 
+// 1. Inisialisasi Client dengan LocalAuth
 const client = new Client({
-    authStrategy: new LocalAuth() 
+    authStrategy: new LocalAuth({
+        dataPath: './sessions' // Folder tempat menyimpan data login
+    }),
+    puppeteer: {
+        // 'headless: true' artinya browser berjalan di latar belakang (tidak muncul jendela)
+        headless: true,
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-extensions'
+        ]
+    }
 });
 
+// 2. Menampilkan QR Code (Hanya muncul jika belum login atau sesi habis)
 client.on('qr', (qr) => {
-    qrcode.generate(qr, {small: true});
-    console.log('Scan QR Code di atas dengan WhatsApp kamu!');
+    console.log('QR RECEIVED. Silakan scan dengan WhatsApp Anda:');
+    qrcode.generate(qr, { small: true });
 });
 
+// 3. Pesan jika berhasil login dan siap digunakan
 client.on('ready', () => {
-    console.log('Bot sudah online!');
+    console.log('Bot sudah siap dan online!');
 });
 
-client.on('message', message => {
-	if(message.body === 'Halo') {
-		message.reply('Halo juga! Saya adalah bot WA yang dibuat di VSC.');
-	}
+// 4. Pesan jika gagal login atau sesi terputus
+client.on('auth_failure', msg => {
+    console.error('Gagal autentikasi, ada masalah pada sesi:', msg);
 });
 
+client.on('disconnected', (reason) => {
+    console.log('Bot terputus (disconnected):', reason);
+});
+
+// 5. Logika Balas Pesan Otomatis
+client.on('message', async (msg) => {
+    const chat = await msg.getChat();
+    const userMessage = msg.body.toLowerCase();
+
+    // Contoh perintah sederhana
+    if (userMessage === 'ping') {
+        msg.reply('Pong! Bot aktif.');
+    } 
+    
+    else if (userMessage === 'halo' || userMessage === 'p') {
+        await client.sendMessage(msg.from, 'Halo! Ada yang bisa bot bantu?');
+    }
+
+    else if (userMessage === '!info') {
+        msg.reply('Saya adalah bot WhatsApp yang berjalan 24 jam menggunakan LocalAuth.');
+    }
+});
+
+// 6. Menjalankan Bot
+console.log('Sedang memulai bot...');
 client.initialize();
